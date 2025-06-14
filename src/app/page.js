@@ -3,11 +3,12 @@ import { useState, useRef } from 'react';
 
 export default function TextSelectionPage() {
   const [text, setText] = useState('');
-  const [formats, setFormats] = useState([]); // Array of { start, end, type }
+  const [formats, setFormats] = useState([]);
   const [lastSelection, setLastSelection] = useState(null);
+  const [activeFormat, setActiveFormat] = useState(null); // NEW
+
   const textRef = useRef(null);
 
-  // Check if same formatting already exists in selected range
   const isOverlappingSameType = (newRange) => {
     return formats.some(
       ({ start, end, type }) =>
@@ -29,6 +30,7 @@ export default function TextSelectionPage() {
 
     setFormats((prev) => [...prev, newRange]);
     setLastSelection({ start, end });
+    setActiveFormat(type); // NEW
 
     setTimeout(() => {
       textarea.focus();
@@ -46,8 +48,8 @@ export default function TextSelectionPage() {
     setFormats((prev) =>
       prev.filter(({ start: s, end: e }) => end <= s || start >= e)
     );
-
     setLastSelection({ start, end });
+    setActiveFormat('none'); // NEW
 
     setTimeout(() => {
       textarea.focus();
@@ -95,6 +97,7 @@ export default function TextSelectionPage() {
           setText(e.target.value);
           setFormats([]);
           setLastSelection(null);
+          setActiveFormat(null); // Reset active format
         }}
         className="w-full p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 text-gray-800"
         placeholder="Type and select some text to format it..."
@@ -103,19 +106,31 @@ export default function TextSelectionPage() {
       <div className="flex flex-wrap items-center gap-4 mt-4">
         <button
           onClick={() => addFormat('bold')}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+          className={`px-4 py-2 rounded transition ${
+            activeFormat === 'bold'
+              ? 'bg-blue-700 text-white'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
         >
           Bold
         </button>
         <button
           onClick={() => addFormat('italic')}
-          className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
+          className={`px-4 py-2 rounded transition ${
+            activeFormat === 'italic'
+              ? 'bg-purple-700 text-white'
+              : 'bg-purple-600 text-white hover:bg-purple-700'
+          }`}
         >
           Italic
         </button>
         <button
           onClick={removeFormat}
-          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
+          className={`px-4 py-2 rounded transition ${
+            activeFormat === 'none'
+              ? 'bg-gray-700 text-white'
+              : 'bg-gray-500 text-white hover:bg-gray-600'
+          }`}
         >
           Normal (Remove Format)
         </button>
@@ -125,6 +140,12 @@ export default function TextSelectionPage() {
         <p className="mt-3 text-sm text-gray-600">
           Selected index range: <strong>{lastSelection.start}</strong> to{' '}
           <strong>{lastSelection.end}</strong>
+        </p>
+      )}
+
+      {activeFormat && (
+        <p className="mt-2 text-sm text-blue-700">
+          Last action: <strong>{activeFormat}</strong>
         </p>
       )}
 
