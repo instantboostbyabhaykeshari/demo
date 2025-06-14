@@ -3,18 +3,50 @@ import { useState, useRef } from 'react';
 
 export default function TextSelectionPage() {
   const [text, setText] = useState('');
-  const [boldRanges, setBoldRanges] = useState([]); // stores bold regions
-  const [lastSelection, setLastSelection] = useState(null); // { start, end }
+  const [formats, setFormats] = useState([]); // Array of { start, end, type }
+  const [lastSelection, setLastSelection] = useState(null);
   const textRef = useRef(null);
 
-  const handleBoldSelection = () => {
+  // Check if same formatting already exists in selected range
+  const isOverlappingSameType = (newRange) => {
+    return formats.some(
+      ({ start, end, type }) =>
+        type === newRange.type &&
+        !(newRange.end <= start || newRange.start >= end)
+    );
+  };
+
+  const addFormat = (type) => {
     const textarea = textRef.current;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
 
     if (start === end) return;
 
-    setBoldRanges((prev) => [...prev, { start, end }]);
+    const newRange = { start, end, type };
+
+    if (isOverlappingSameType(newRange)) return;
+
+    setFormats((prev) => [...prev, newRange]);
+    setLastSelection({ start, end });
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = end;
+    }, 0);
+  };
+
+  const removeFormat = () => {
+    const textarea = textRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (start === end) return;
+
+    setFormats((prev) =>
+      prev.filter(({ start: s, end: e }) => end <= s || start >= e)
+    );
+
     setLastSelection({ start, end });
 
     setTimeout(() => {
@@ -24,61 +56,82 @@ export default function TextSelectionPage() {
   };
 
   const getFormattedText = () => {
-    if (boldRanges.length === 0) return text;
+    if (formats.length === 0) return text;
 
     let result = '';
-    let lastIndex = 0;
+    let index = 0;
+    const insertions = {};
 
-    const sortedRanges = [...boldRanges].sort((a, b) => a.start - b.start);
-
-    for (const { start, end } of sortedRanges) {
-      result += text.slice(lastIndex, start); // plain
-      result += `<b>${text.slice(start, end)}</b>`; // bold
-      lastIndex = end;
+    for (const { start, end, type } of formats) {
+      const tag = type === 'bold' ? 'b' : 'i';
+      if (!insertions[start]) insertions[start] = [];
+      if (!insertions[end]) insertions[end] = [];
+      insertions[start].push(`<${tag}>`);
+      insertions[end].unshift(`</${tag}>`);
     }
 
-    result += text.slice(lastIndex);
+    while (index <= text.length) {
+      if (insertions[index]) {
+        result += insertions[index].join('');
+      }
+      if (index < text.length) {
+        result += text[index];
+      }
+      index++;
+    }
+
     return result;
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Bold Selected Text in Textarea</h1>
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">📝 Text Formatter</h1>
 
-      <textarea className='border'
+      <textarea
         ref={textRef}
-        rows={10}
-        cols={60}
+        rows={8}
         value={text}
         onChange={(e) => {
           setText(e.target.value);
-          setBoldRanges([]); // reset bold formatting
+          setFormats([]);
           setLastSelection(null);
         }}
-        placeholder="Type and select some text, then click 'Bold'"
+        className="w-full p-4 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 text-gray-800"
+        placeholder="Type and select some text to format it..."
       />
 
-      <br />
-      <button className='border' onClick={handleBoldSelection} style={{ marginTop: '10px' }}>
-        Bold Selected Text
-      </button>
+      <div className="flex flex-wrap items-center gap-4 mt-4">
+        <button
+          onClick={() => addFormat('bold')}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+        >
+          Bold
+        </button>
+        <button
+          onClick={() => addFormat('italic')}
+          className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
+        >
+          Italic
+        </button>
+        <button
+          onClick={removeFormat}
+          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
+        >
+          Normal (Remove Format)
+        </button>
+      </div>
 
       {lastSelection && (
-        <p style={{ marginTop: '10px' }}>
+        <p className="mt-3 text-sm text-gray-600">
           Selected index range: <strong>{lastSelection.start}</strong> to{' '}
           <strong>{lastSelection.end}</strong>
         </p>
       )}
 
-      <div style={{ marginTop: '20px' }}>
-        <strong>Preview:</strong>
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold mb-2">Preview:</h2>
         <div
-          style={{
-            whiteSpace: 'pre-wrap',
-            border: '1px solid #ccc',
-            padding: '10px',
-            marginTop: '10px',
-          }}
+          className="border p-4 rounded bg-white text-gray-800 whitespace-pre-wrap"
           dangerouslySetInnerHTML={{ __html: getFormattedText() }}
         />
       </div>
